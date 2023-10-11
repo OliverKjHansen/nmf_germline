@@ -2,6 +2,10 @@
 #sort -k1,1 -k2,2n
 configfile: 'config.yaml'
 
+###IMPORTENT###
+file_path = config["file_path"]
+# all the 
+
 chrom = config["chromosomes"]
 length = config["chromosome_length"]
 
@@ -47,33 +51,33 @@ def creating_breakpoints(kmer):
 # 	return regions
 rule all:
 	input:
-		expand(["coverage_bedfiles/{chrom}x10_{fraction}p.bed",
-		"coverage_bedfiles/all_chromosomesx10_{fraction}p.bed",
-		"raw_vcf/{chrom}_indel_{freq}.vcf.gz",
-		"raw_vcf/indel_{freq}.vcf.gz",
-		"{window_sizes}mb_windows/clean/{region}.bed",
-		"{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed", # remove
-		"{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed", # remove
-		"{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed", # remove
-		"{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed", # remove
-		"{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # remove
-		"{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-		"{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed", # remove
-		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed", # remove
-		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/ins_counts_{region}_{kmer}mer.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/del_counts_{region}_{kmer}mer.bed",
-		"{window_sizes}mb_windows/background_{kmer}mer/final/background_{region}_{kmer}mer_{fraction}p.bed",
-		"{window_sizes}mb_windows/methylation_{fraction}p/{region}_methylation.bed",
-		"{window_sizes}mb_windows/replication_timing_{fraction}p/{region}_replicationtime.bed", 
-		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
-		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed",
-		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/ins_{region}_{size_partition}_{kmer}mer_tmp.bed",
-		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/del_{region}_{size_partition}_{kmer}mer_tmp.bed",
-		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/ins_{region}_{size_partition}_{kmer}mer_final.bed",
-		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/del_{region}_{size_partition}_{kmer}mer_final.bed",
-		"{window_sizes}mb_windows/complex_structures/{region}_{complex_structure}_{fraction}p.bed",
-		"{window_sizes}mb_windows/recombination/{region}_recombination_{fraction}p.bed"
+		# expand(["coverage_bedfiles/{chrom}x10_{fraction}p.bed",
+		# "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed",
+		# "raw_vcf/{chrom}_indel_{freq}.vcf.gz",
+		# "raw_vcf/indel_{freq}.vcf.gz",
+		# "{window_sizes}mb_windows/clean/{region}.bed",
+		# "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed", # remove
+		# "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed", # remove
+		# "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed", # remove
+		# "{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed", # remove
+		# "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # remove
+		# "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+		# "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
+		# "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed", # remove
+		# "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed", # remove
+		# "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/ins_counts_{region}_{kmer}mer.bed",
+		# "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/del_counts_{region}_{kmer}mer.bed",
+		# "{window_sizes}mb_windows/background_{kmer}mer/final/background_{region}_{kmer}mer_{fraction}p.bed",
+		# "{window_sizes}mb_windows/methylation_{fraction}p/{region}_methylation.bed",
+		# "{window_sizes}mb_windows/replication_timing_{fraction}p/{region}_replicationtime.bed", 
+		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
+		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed",
+		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/ins_{region}_{size_partition}_{kmer}mer_tmp.bed",
+		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/del_{region}_{size_partition}_{kmer}mer_tmp.bed",
+		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/ins_{region}_{size_partition}_{kmer}mer_final.bed",
+		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/del_{region}_{size_partition}_{kmer}mer_final.bed",
+		# "{window_sizes}mb_windows/complex_structures/{region}_{complex_structure}_{fraction}p.bed",
+		# "{window_sizes}mb_windows/recombination/{region}_recombination_{fraction}p.bed"
 		], region = regions, window_sizes = window_sizes, kmer = kmer_indels,
 		chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition,
 		complex_structure = complex_structure)
@@ -81,52 +85,58 @@ rule all:
 
 rule coverage_regions:
 	input:
-		seq_summary_zipped = "{dataset}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz"
-		seq_summary_unzipped = "{dataset}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz"
+		seq_zipped = files_path+"{dataset}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz"
+		seq_unzipped = files_path+"{dataset}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt"
 	params: lambda wildcards: float(int(wildcards.fraction)/100)
 	output:
-		bedfile = "coverage_bedfiles/{chrom}x10_{fraction}p.bed" #make depth value different?
+		bedfile = "{dataset}/accepted_coverage/{chrom}x10_{fraction}p.bed" # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
+		assembled_file: "{dataset}/accepted_coverage/all_coverage_x10_{fraction}p.bed"
 		#all_chromosomes = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed"
 	shell:"""
-	gunzip -d {input.seq_summary}
-	python topmed_rare.py coverage/{chrom}.BRAVO_TOPMed_coverage_hg38.txt {params.procent} > {output.bedfile}
-	gzip coverage/{chrom}.BRAVO_TOPMed_coverage_hg38.txt
+	gunzip -d {input.seq_zipped}
+	python topmed_rare.py {input.seq_unzipped} {params.procent} > {output.bedfile}
+	gzip {input.seq_unzipped}
+	cat {output.bedfile} >> {output.assembled_file}
 	"""
 #echo {output.bedfile} > coverage_bedfiles/all_chromosomesx10_{wildcards.fraction}p.bed
 ###creatin vcf with alle indels under a give frequency
 
 rule vcf_indel:
 	input:
-		raw_vcf = "raw_vcf/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz"
+		raw_vcf = files_path+"{dataset}/vcf_files/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz"
 	output:
-		filtered = "raw_vcf/{chrom}_indel_{freq}.vcf.gz"
+		filtered = "{dataset}/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
+		assembled_file = "{dataset}/vcf_indels/all_indels_{freq}.vcf.gz" # sp i dont have to do the step under
 		#freqi = "raw_vcf/{chrom}_0.1.vcf.gz"
 	shell:"""
 	tabix -f -p vcf {input.raw_vcf}
 	bcftools filter -O z -o {output.filtered} -i 'AF<{wildcards.freq} && VRT=2' {input.raw_vcf}
+	cat {output.filtered} >> {output.assemled_file}
 	"""
+
+###EVERYTHING above this should work. 
 #bcftools filter -O z -o {output.indel} -i 'VRT=2' {output.freqi}
 #cat {output.indel} raw_vcf/indel_0.1.vcf.gz > raw_vcf/indel_0.1.vcf.gz
-rule catting_vcf:
-	resources:
-		threads=1,
-		time=30,
-		mem_mb=1000
-	output:
-		all_vcf = "raw_vcf/indel_{freq}.vcf.gz"
-	shell:"""
-	cat raw_vcf/*_indel_{wildcards.freq}.vcf.gz > {output.all_vcf}
-	"""
-rule catting_cov:
-	resources:
-		threads=1,
-		time=30,
-		mem_mb=1000
-	output:
-		all_cov = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed"
-	shell:"""
-	cat coverage_bedfiles/*x10_{wildcards.fraction}p.bed > {output.all_cov}
-	"""
+# rule catting_vcf:
+# 	resources:
+# 		threads=1,
+# 		time=30,
+# 		mem_mb=1000
+# 	output:
+# 		all_vcf = "raw_vcf/indel_{freq}.vcf.gz"
+# 	shell:"""
+# 	cat raw_vcf/*_indel_{wildcards.freq}.vcf.gz > {output.all_vcf}
+# 	"""
+# rule catting_cov:
+# 	resources:
+# 		threads=1,
+# 		time=30,
+# 		mem_mb=1000
+# 	output:
+# 		all_cov = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed"
+# 	shell:"""
+# 	cat coverage_bedfiles/*x10_{wildcards.fraction}p.bed > {output.all_cov}
+# 	"""
 ## a rule which makes the MegaBases bedfile 
 ## Creating regions which are to be investigated
 rule mega_bases:
