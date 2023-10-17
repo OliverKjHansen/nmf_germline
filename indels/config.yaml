@@ -2,7 +2,7 @@
 
 dataset: ["topmed"]
 
-file_path: "../files"
+file_path: "../files/"
 # these are fixed files
 genome_bed: "../files/hg38_clean.bed"
 blacklist: "../files/hg38-blacklist.v2.bed"

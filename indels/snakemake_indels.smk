@@ -203,207 +203,207 @@ rule accepting_regions:
 	fi
 	"""
 
-rule indel_background_counter: #im not sure this works
-	input:
-		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-		genome = two_bit
-	params:
-		before_break  = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[0]),
-		after_break = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[1])
-	output:
-		background = "{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed",
-		ss_background = "{window_sizes}mb_windows/background_{kmer}mer/final/background_{region}_{kmer}mer_{fraction}p.bed"
-	shell:"""
-	check=`cat {input.accepted_regions} | wc -l`
-	if [[ $check -gt 0 ]]
-	then 
-		kmer_counter background --bed {input.accepted_regions} --before_after {params.before_break} {params.after_break} --reverse_complement_method both {input.genome} > {output.background}
-		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.background} > {output.ss_background}
-	else
-		touch {output.background}
-		touch {output.ss_background}
-	fi
-	"""
+# rule indel_background_counter: #im not sure this works
+# 	input:
+# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
+# 		genome = two_bit
+# 	params:
+# 		before_break  = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[0]),
+# 		after_break = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[1])
+# 	output:
+# 		background = "{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed",
+# 		ss_background = "{window_sizes}mb_windows/background_{kmer}mer/final/background_{region}_{kmer}mer_{fraction}p.bed"
+# 	shell:"""
+# 	check=`cat {input.accepted_regions} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then 
+# 		kmer_counter background --bed {input.accepted_regions} --before_after {params.before_break} {params.after_break} --reverse_complement_method both {input.genome} > {output.background}
+# 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.background} > {output.ss_background}
+# 	else
+# 		touch {output.background}
+# 		touch {output.ss_background}
+# 	fi
+# 	"""
 
-rule creating_indel_variants:
-	input:
-		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-		vcf_file = "raw_vcf/indel_{freq}.vcf.gz" #change, make one or two rules that create this file(filter and ) output?
-	output:
-		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
-		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
-	shell:"""
-	check=`cat {input.accepted_regions} | wc -l`
-	if [[ $check -gt 0 ]]
-	then
-		bedtools intersect -a {input.vcf_file} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $1,$2,$4,$5}}' > {output.variants}
-	else
-		touch {output.variants}
-	fi
-	python creating_deletions.py {output.variants} > {output.del_variants}
-	python creating_insertions.py {output.variants} > {output.ins_variants}
-	"""
+# rule creating_indel_variants:
+# 	input:
+# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
+# 		vcf_file = "raw_vcf/indel_{freq}.vcf.gz" #change, make one or two rules that create this file(filter and ) output?
+# 	output:
+# 		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
+# 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+# 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
+# 	shell:"""
+# 	check=`cat {input.accepted_regions} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then
+# 		bedtools intersect -a {input.vcf_file} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $1,$2,$4,$5}}' > {output.variants}
+# 	else
+# 		touch {output.variants}
+# 	fi
+# 	python creating_deletions.py {output.variants} > {output.del_variants}
+# 	python creating_insertions.py {output.variants} > {output.ins_variants}
+# 	"""
 
-rule indel_variant_counter:
-	input:
-		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
-		genome = two_bit
-	params:
-		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
-	output:
-		kmer_count_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
-		kmer_count_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
-		ss_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/ins_counts_{region}_{kmer}mer.bed",
-		ss_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/del_counts_{region}_{kmer}mer.bed"
-	shell:"""
-	check=`cat {input.ins_variants} | wc -l`
-	if [[ $check -gt 0 ]]
-	then
-		kmer_counter indel -r {params.radius} --sample {input.genome} {input.ins_variants} ins > {output.kmer_count_ins}
-		kmer_counter indel -r {params.radius} --sample {input.genome} {input.del_variants} del_start > {output.kmer_count_del}
-		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_ins} > {output.ss_ins} 
-		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_del} > {output.ss_del}
+# rule indel_variant_counter:
+# 	input:
+# 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+# 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
+# 		genome = two_bit
+# 	params:
+# 		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
+# 	output:
+# 		kmer_count_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
+# 		kmer_count_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
+# 		ss_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/ins_counts_{region}_{kmer}mer.bed",
+# 		ss_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/del_counts_{region}_{kmer}mer.bed"
+# 	shell:"""
+# 	check=`cat {input.ins_variants} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then
+# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.ins_variants} ins > {output.kmer_count_ins}
+# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.del_variants} del_start > {output.kmer_count_del}
+# 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_ins} > {output.ss_ins} 
+# 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_del} > {output.ss_del}
 
-	else
-		touch {output.kmer_count_del}
-		touch {output.kmer_count_ins}
-		touch {output.ss_del}
-		touch {output.ss_ins} 
-	fi
-	"""
+# 	else
+# 		touch {output.kmer_count_del}
+# 		touch {output.kmer_count_ins}
+# 		touch {output.ss_del}
+# 		touch {output.ss_ins} 
+# 	fi
+# 	"""
 
-### DOING METHYLATION DATA for plot
+# ### DOING METHYLATION DATA for plot
 
-rule methylation_slicing: #im not sure this works
-	input:
-		accept_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-		methylation = methylation_data
-	resources:
-		threads=1,
-		time=60,
-		mem_mb=1000
-	output:
-		#intersected_meth = "{window_sizes}mb_windows/methylation/intersected",
-		ss_meth = "{window_sizes}mb_windows/methylation_{fraction}p/{region}_methylation.bed"
-	shell:"""
-	check=`cat {input.accept_regions}  | wc -l`
-	if [[ $check -gt 0 ]]
-	then 
-		bedtools intersect -wa -a {input.methylation} -b {input.accept_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$2,$3,$5,$10,$11,$12,$13,$14}}' > {output.ss_meth}
-	else
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' {wildcards.region} NA NA NA NA NA NA NA NA > {output.ss_meth}
-	fi
-	"""
+# rule methylation_slicing: #im not sure this works
+# 	input:
+# 		accept_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
+# 		methylation = methylation_data
+# 	resources:
+# 		threads=1,
+# 		time=60,
+# 		mem_mb=1000
+# 	output:
+# 		#intersected_meth = "{window_sizes}mb_windows/methylation/intersected",
+# 		ss_meth = "{window_sizes}mb_windows/methylation_{fraction}p/{region}_methylation.bed"
+# 	shell:"""
+# 	check=`cat {input.accept_regions}  | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then 
+# 		bedtools intersect -wa -a {input.methylation} -b {input.accept_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$2,$3,$5,$10,$11,$12,$13,$14}}' > {output.ss_meth}
+# 	else
+# 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' {wildcards.region} NA NA NA NA NA NA NA NA > {output.ss_meth}
+# 	fi
+# 	"""
 
-##replication_time
-rule replication_timing: #im not sure this works
-	input:
-		accept_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-		rep_time = replication_time
-	resources:
-		threads=1,
-		time=60,
-		mem_mb=1000
-	output:
-		#intersected_meth = "{window_sizes}mb_windows/methylation/intersected",
-		reptime = "{window_sizes}mb_windows/replication_timing_{fraction}p/{region}_replicationtime.bed"
-	shell:"""
-	check=`cat {input.accept_regions}  | wc -l`
-	if [[ $check -gt 0 ]]
-	then 
-		bedtools intersect -wa -a {input.rep_time} -b {input.accept_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$0}}' > {output.reptime}
-	else
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' {wildcards.region} NA NA NA NA NA > {output.reptime}
-	fi
-	"""
+# ##replication_time
+# rule replication_timing: #im not sure this works
+# 	input:
+# 		accept_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
+# 		rep_time = replication_time
+# 	resources:
+# 		threads=1,
+# 		time=60,
+# 		mem_mb=1000
+# 	output:
+# 		#intersected_meth = "{window_sizes}mb_windows/methylation/intersected",
+# 		reptime = "{window_sizes}mb_windows/replication_timing_{fraction}p/{region}_replicationtime.bed"
+# 	shell:"""
+# 	check=`cat {input.accept_regions}  | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then 
+# 		bedtools intersect -wa -a {input.rep_time} -b {input.accept_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$0}}' > {output.reptime}
+# 	else
+# 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' {wildcards.region} NA NA NA NA NA > {output.reptime}
+# 	fi
+# 	"""
 
-# DOING SIZE VARIANTS
+# # DOING SIZE VARIANTS
 
-rule size_indel_variants:
-	input:
-		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
-	params:
-		#size = lambda wildcards: ",".join(wildcards.size_partition.split(","))
-	output:
-		insertion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
-		deletion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed"
-	shell:"""
-	check=`cat {input.ins_variants} | wc -l`
-	if [[ $check -gt 0 ]]
-	then
-		python splitting_indel_size.py {input.ins_variants} {wildcards.size_partition} > {output.insertion} 
-		python splitting_indel_size.py {input.del_variants} {wildcards.size_partition} > {output.deletion}
+# rule size_indel_variants:
+# 	input:
+# 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+# 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
+# 	params:
+# 		#size = lambda wildcards: ",".join(wildcards.size_partition.split(","))
+# 	output:
+# 		insertion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
+# 		deletion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed"
+# 	shell:"""
+# 	check=`cat {input.ins_variants} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then
+# 		python splitting_indel_size.py {input.ins_variants} {wildcards.size_partition} > {output.insertion} 
+# 		python splitting_indel_size.py {input.del_variants} {wildcards.size_partition} > {output.deletion}
 		
-	else
-		touch {output.insertion}
-		touch {output.deletion}
-	fi
-	"""
+# 	else
+# 		touch {output.insertion}
+# 		touch {output.deletion}
+# 	fi
+# 	"""
 
-rule indel_size_counter:
-	input:
-		insertion_size = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
-		deletion_size = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed",
-		genome = two_bit
-	params:
-		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
-	output:
-		insertion_sized = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/ins_{region}_{size_partition}_{kmer}mer_tmp.bed",
-		deletion_sized = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/del_{region}_{size_partition}_{kmer}mer_tmp.bed",
-		insertion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/ins_{region}_{size_partition}_{kmer}mer_final.bed",
-		deletion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/del_{region}_{size_partition}_{kmer}mer_final.bed"
-	shell:"""
-	check=`cat {input.insertion_size} | wc -l`
-	if [[ $check -gt 0 ]]
-	then
-		kmer_counter indel -r {params.radius} --sample {input.genome} {input.insertion_size} ins > {output.insertion_sized}
-		kmer_counter indel -r {params.radius} --sample {input.genome} {input.deletion_size} del_start > {output.deletion_sized}
-		awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' {output.insertion_sized} > {output.insertion_size_ss} 
-		awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' {output.deletion_sized} > {output.deletion_size_ss}
+# rule indel_size_counter:
+# 	input:
+# 		insertion_size = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
+# 		deletion_size = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed",
+# 		genome = two_bit
+# 	params:
+# 		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
+# 	output:
+# 		insertion_sized = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/ins_{region}_{size_partition}_{kmer}mer_tmp.bed",
+# 		deletion_sized = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/del_{region}_{size_partition}_{kmer}mer_tmp.bed",
+# 		insertion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/ins_{region}_{size_partition}_{kmer}mer_final.bed",
+# 		deletion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/del_{region}_{size_partition}_{kmer}mer_final.bed"
+# 	shell:"""
+# 	check=`cat {input.insertion_size} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then
+# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.insertion_size} ins > {output.insertion_sized}
+# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.deletion_size} del_start > {output.deletion_sized}
+# 		awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' {output.insertion_sized} > {output.insertion_size_ss} 
+# 		awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' {output.deletion_sized} > {output.deletion_size_ss}
 
-	else
-		touch {output.insertion_sized}
-		touch {output.deletion_sized}
-		touch {output.deletion_size_ss}
-		touch {output.insertion_size_ss}
-	fi
-	"""
+# 	else
+# 		touch {output.insertion_sized}
+# 		touch {output.deletion_sized}
+# 		touch {output.deletion_size_ss}
+# 		touch {output.insertion_size_ss}
+# 	fi
+# 	"""
 
-####COMPLEX STRUCTURES#####
+# ####COMPLEX STRUCTURES#####
 
-rule creating_complex_structure:
-	input:
-		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-		complex_structure = "nonBdna/{complex_structure}.bed" #change, make one or two rules that create this file(filter and ) output?
-	output:
-		cs =  "{window_sizes}mb_windows/complex_structures/{region}_{complex_structure}_{fraction}p.bed"
-	shell:"""
-	check=`cat {input.accepted_regions} | wc -l`
-	if [[ $check -gt 0 ]]
-	then
-		bedtools intersect -a {input.complex_structure} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $0}}' > {output.cs}
-	else
-		touch {output.cs}
-	fi
-	"""
+# rule creating_complex_structure:
+# 	input:
+# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
+# 		complex_structure = "nonBdna/{complex_structure}.bed" #change, make one or two rules that create this file(filter and ) output?
+# 	output:
+# 		cs =  "{window_sizes}mb_windows/complex_structures/{region}_{complex_structure}_{fraction}p.bed"
+# 	shell:"""
+# 	check=`cat {input.accepted_regions} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then
+# 		bedtools intersect -a {input.complex_structure} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $0}}' > {output.cs}
+# 	else
+# 		touch {output.cs}
+# 	fi
+# 	"""
 
-####Recombination rate######
+# ####Recombination rate######
 
-rule recombination_rate:
-	input:
-		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-		recombination_map = recombination #change, make one or two rules that create this file(filter and ) output?
-	output:
-		recomb =  "{window_sizes}mb_windows/recombination/{region}_recombination_{fraction}p.bed"
-	shell:"""
-	check=`cat {input.accepted_regions} | wc -l`
-	if [[ $check -gt 0 ]]
-	then
-		bedtools intersect -a {input.recombination_map} -b {input.accepted_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$0}}' > {output.recomb}
-	else
-		touch {output.recomb}
-	fi
-	"""
+# rule recombination_rate:
+# 	input:
+# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
+# 		recombination_map = recombination #change, make one or two rules that create this file(filter and ) output?
+# 	output:
+# 		recomb =  "{window_sizes}mb_windows/recombination/{region}_recombination_{fraction}p.bed"
+# 	shell:"""
+# 	check=`cat {input.accepted_regions} | wc -l`
+# 	if [[ $check -gt 0 ]]
+# 	then
+# 		bedtools intersect -a {input.recombination_map} -b {input.accepted_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$0}}' > {output.recomb}
+# 	else
+# 		touch {output.recomb}
+# 	fi
+# 	"""
