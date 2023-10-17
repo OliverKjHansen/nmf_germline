@@ -1,6 +1,6 @@
 
 
-dataset: ["topmed"]
+datasets: ["topmed"]
 
 file_path: "../files/"
 # these are fixed files

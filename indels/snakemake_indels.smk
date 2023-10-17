@@ -8,21 +8,22 @@ file_path = config["file_path"]
 
 chrom = config["chromosomes"]
 length = config["chromosome_length"]
+datasets = config["datasets"]
 
-genome_bed = config["genome_bed"]
-blacklist = config["blacklist"]
-topmed = config["topmed_data"] # when i want to start filtering 
+#genome_bed = config["genome_bed"]
+#blacklist = config["blacklist"]
+#topmed = config["topmed_data"] # when i want to start filtering 
 #coverage_files = config["coverage"] # use this to make bedfiles, maybe later
 window_sizes = config["window_size_mb"]
-kmer_indels = config["kmer_indels"]
+# kmer_indels = config["kmer_indels"]
 NumberWithDepth = config["NumberWithDepth"]
-two_bit = config["twobitgenome"]
+# two_bit = config["twobitgenome"]
 allelefrequency = config["allelefrequency"]
-methylation_data = config["methylation_data"]
-replication_time = config["replication_time"]
-size_partition = config["size_partition"]
-complex_structure = config["complex_structure"]
-recombination = config["recombination"]
+# methylation_data = config["methylation_data"]
+# replication_time = config["replication_time"]
+# size_partition = config["size_partition"]
+# complex_structure = config["complex_structure"]
+# recombination = config["recombination"]
 
 #this makes the wildcards of the regions i want to investigate
 def making_windows(chromosomes, length, window_sizes):
@@ -51,10 +52,13 @@ def creating_breakpoints(kmer):
 # 	return regions
 rule all:
 	input:
-		# expand(["coverage_bedfiles/{chrom}x10_{fraction}p.bed",
-		# "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed",
-		# "raw_vcf/{chrom}_indel_{freq}.vcf.gz",
-		# "raw_vcf/indel_{freq}.vcf.gz",
+		expand([file_path+"{datasets}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz",
+		file_path+"{datasets}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt",
+		"{datasets}/accepted_coverage/{chrom}x10_{fraction}p.bed", # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
+		"{datasets}/accepted_coverage/all_coverage_x10_{fraction}p.bed",
+		file_path+"{datasets}/vcf_files/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz",
+		"{datasets}/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
+		"{datasets}/vcf_indels/all_indels_{freq}.vcf.gz"
 		# "{window_sizes}mb_windows/clean/{region}.bed",
 		# "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed", # remove
 		# "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed", # remove
@@ -78,35 +82,34 @@ rule all:
 		# "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/del_{region}_{size_partition}_{kmer}mer_final.bed",
 		# "{window_sizes}mb_windows/complex_structures/{region}_{complex_structure}_{fraction}p.bed",
 		# "{window_sizes}mb_windows/recombination/{region}_recombination_{fraction}p.bed"
-		], region = regions, window_sizes = window_sizes, kmer = kmer_indels,
-		chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition,
-		complex_structure = complex_structure)
-
+		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
 rule coverage_regions:
 	input:
-		seq_zipped = files_path+"{dataset}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz"
-		seq_unzipped = files_path+"{dataset}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt"
+		seq_zipped = file_path+"{datasets}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz",
+		seq_unzipped = file_path+"{datasets}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt"
 	params: lambda wildcards: float(int(wildcards.fraction)/100)
+	conda: "../envs/coverage_regions.yaml"
 	output:
-		bedfile = "{dataset}/accepted_coverage/{chrom}x10_{fraction}p.bed" # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
-		assembled_file: "{dataset}/accepted_coverage/all_coverage_x10_{fraction}p.bed"
+		bedfile = "{datasets}/accepted_coverage/{chrom}x10_{fraction}p.bed", # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
+		assembled_file =  "{datasets}/accepted_coverage/all_coverage_x10_{fraction}p.bed"
 		#all_chromosomes = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed"
 	shell:"""
 	gunzip -d {input.seq_zipped}
-	python topmed_rare.py {input.seq_unzipped} {params.procent} > {output.bedfile}
+	python scripts/countingregions.py {input.seq_unzipped} {params.procent} > {output.bedfile}
 	gzip {input.seq_unzipped}
-	cat {output.bedfile} >> {output.assembled_file}
+	cat {output.bedfile} > {output.assembled_file}
 	"""
 #echo {output.bedfile} > coverage_bedfiles/all_chromosomesx10_{wildcards.fraction}p.bed
 ###creatin vcf with alle indels under a give frequency
 
 rule vcf_indel:
 	input:
-		raw_vcf = files_path+"{dataset}/vcf_files/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz"
+		raw_vcf = file_path+"{datasets}/vcf_files/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz"
+	conda: "../envs/bcftools.yaml"
 	output:
-		filtered = "{dataset}/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
-		assembled_file = "{dataset}/vcf_indels/all_indels_{freq}.vcf.gz" # sp i dont have to do the step under
+		filtered = expand("{datasets}/vcf_indels/{chrom}_indel_{freq}.vcf.gz", chrom = chrom, datasets = datasets, freq = allelefrequency), 
+		assembled_file = expand("{datasets}/vcf_indels/all_indels_{freq}.vcf.gz", datasets = datasets, freq = allelefrequency) # sp i dont have to do the step under
 		#freqi = "raw_vcf/{chrom}_0.1.vcf.gz"
 	shell:"""
 	tabix -f -p vcf {input.raw_vcf}
@@ -139,69 +142,69 @@ rule vcf_indel:
 # 	"""
 ## a rule which makes the MegaBases bedfile 
 ## Creating regions which are to be investigated
-rule mega_bases:
-	params: 
-		chrom = lambda wildcards: wildcards.region.split("_")[0].split("m")[0],
-		start = lambda wildcards: str(int(wildcards.region.split("_")[1].split("m")[0])*1000000),
-		end = lambda wildcards: str(int(wildcards.region.split("_")[3].split("m")[0])*1000000)
-	resources:
-		threads=1,
-		time=1,
-		mem_mb=100
-	output:
-		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed"
-	shell:"""
-	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
-	"""
+# rule mega_bases:
+# 	params: 
+# 		chrom = lambda wildcards: wildcards.region.split("_")[0].split("m")[0],
+# 		start = lambda wildcards: str(int(wildcards.region.split("_")[1].split("m")[0])*1000000),
+# 		end = lambda wildcards: str(int(wildcards.region.split("_")[3].split("m")[0])*1000000)
+# 	resources:
+# 		threads=1,
+# 		time=1,
+# 		mem_mb=100
+# 	output:
+# 		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed"
+# 	shell:"""
+# 	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
+# 	"""
 
 
-rule checking_regions_with_coverage:
-	input:
-		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed", #again do it by chromosome
-		coverage_accepted = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed" #output?
-	resources:
-		threads=1,
-		time=30,
-		mem_mb=1000
-	output:
-		intersected_regions = "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed"
-	shell:"""
-	bedtools intersect -a {input.bedfiles} -b {input.coverage_accepted} > {output.intersected_regions}
-	"""
+# rule checking_regions_with_coverage:
+# 	input:
+# 		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed", #again do it by chromosome
+# 		coverage_accepted = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed" #output?
+# 	resources:
+# 		threads=1,
+# 		time=30,
+# 		mem_mb=1000
+# 	output:
+# 		intersected_regions = "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed"
+# 	shell:"""
+# 	bedtools intersect -a {input.bedfiles} -b {input.coverage_accepted} > {output.intersected_regions}
+# 	"""
 
-rule checking_regions_with_blacklist:
-	input:
-		intersected_regions = "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed",
-		blacklist = blacklist
-	resources:
-		threads=1,
-		time=30,
-		mem_mb=1000
-	output:
-		final_regions = "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed"
-	shell:"""
-	bedtools intersect -v -a {input.intersected_regions} -b {input.blacklist} > {output.final_regions}
-	"""
-rule accepting_regions:
-	input:
-		clean = "{window_sizes}mb_windows/clean/{region}.bed",
-		final = "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed"
-	resources:
-		threads=1,
-		time=30,
-		mem_mb=1000
-	output:
-		number = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed"
-	shell:"""
-	tmp=`bedtools intersect -wo -a {input.clean} -b {input.final}| awk '{{s+=$7}} END {{print s}}'`
-	num=$(expr {window_sizes} \* 1000000 / 2)
-	if [[ $tmp -ge $num ]]
-	then 
-		cp {input.final} {output.number}
-	else
-		touch {output.number}
-	fi
-	"""
+# rule checking_regions_with_blacklist:
+# 	input:
+# 		intersected_regions = "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed",
+# 		blacklist = blacklist
+# 	resources:
+# 		threads=1,
+# 		time=30,
+# 		mem_mb=1000
+# 	output:
+# 		final_regions = "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed"
+# 	shell:"""
+# 	bedtools intersect -v -a {input.intersected_regions} -b {input.blacklist} > {output.final_regions}
+# 	"""
+# rule accepting_regions:
+# 	input:
+# 		clean = "{window_sizes}mb_windows/clean/{region}.bed",
+# 		final = "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed"
+# 	resources:
+# 		threads=1,
+# 		time=30,
+# 		mem_mb=1000
+# 	output:
+# 		number = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed"
+# 	shell:"""
+# 	tmp=`bedtools intersect -wo -a {input.clean} -b {input.final}| awk '{{s+=$7}} END {{print s}}'`
+# 	num=$(expr {window_sizes} \* 1000000 / 2)
+# 	if [[ $tmp -ge $num ]]
+# 	then 
+# 		cp {input.final} {output.number}
+# 	else
+# 		touch {output.number}
+# 	fi
+# 	"""
 
 # rule indel_background_counter: #im not sure this works
 # 	input:
