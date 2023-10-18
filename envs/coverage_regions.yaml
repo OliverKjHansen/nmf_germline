@@ -2,6 +2,5 @@ name: coverage_regions
 channels:
   - bioconda
   - conda-forge
-  - genomedk
 dependencies: 
   - python=3.12
