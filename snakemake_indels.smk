@@ -1,5 +1,6 @@
-# snakemake --profile slurm
-#sort -k1,1 -k2,2n
+import pickle
+import os
+
 configfile: 'config.yaml'
 
 ###IMPORTENT###
@@ -35,7 +36,15 @@ def making_windows(chromosomes, length, window_sizes):
 				regions.append(title)
 	return regions
 
-regions = making_windows(chrom, length, window_sizes)
+# Check if the file exists
+if os.path.exists("regions.pkl"):
+    # Load the list from the file
+    with open("regions.pkl", "rb") as file:
+        regions = pickle.load(file)
+else:
+	regions = making_windows(chrom, length, window_sizes)
+	with open("regions.pkl", "wb") as file:
+		pickle.dump(regions, file)
 
 def creating_breakpoints(kmer):
 	before = int(kmer)/2
@@ -53,11 +62,12 @@ rule all:
 	input:
 		expand(["files/{datasets}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz",
 		"files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed", # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
-		#"files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed",
+		"files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed",
 		"files/{datasets}/vcf_files/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz",
 		"files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
-		#"files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz"
-		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
+		"files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz",
+		"{window_sizes}mb_windows/regions/{region}.bed"
+		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
 rule coverage_regions:
 	input:
@@ -65,11 +75,11 @@ rule coverage_regions:
 	params: 
 		procent = lambda wildcards: float(int(wildcards.fraction)/100)
 	output:
-		bedfile = "files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed", # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
+		bedfile = "files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed" # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
 	shell:"""
 	temp_unzipped=$(mktemp -u)
     gunzip -c {input.seq_zipped} > $temp_unzipped
-	python scripts/countingregions.py {unzipped} {params.procent} > {output.bedfile}
+	python scripts/countingregions.py $temp_unzipped {params.procent} > {output.bedfile}
 	gzip $temp_unzipped
 	"""
 rule vcf_indel:
@@ -83,40 +93,39 @@ rule vcf_indel:
 	bcftools filter -O z -o {output.filtered} -i 'AF<{wildcards.freq} && VRT=2' {input.raw_vcf}
 	"""
 
-# rule aggregate_chromosomes:
-# 	input:
-# 		individual_coverage = expand("files/{datasets}/accepted_coverage/{chrom}x10_{fraction}p.bed", datasets=datasets, chrom=chrom, fraction=NumberWithDepth),
-# 		individual_vcf =  expand("files/{datasets}/vcf_indels/{chrom}_indel_{freq}.vcf.gz", datasets=datasets, chrom=chrom, freq = allelefrequency)
-# 	output:
-# 		summary_coverage = expand("files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed", datasets=datasets, fraction=NumberWithDepth),
-# 		summary_vcf= expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
-# 	shell:"""
-# 	cat {output.individual_coverage} > {output.summary_coverage}
-# 	cat {output.individual_vcf} > {output.summary_vcf}
-# 	"""
+rule aggregate_chromosomes:
+	input:
+		individual_coverage = expand("files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed", datasets=datasets, chrom=chrom, fraction=NumberWithDepth),
+		individual_vcf =  expand("files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{freq}.vcf.gz", datasets=datasets, chrom=chrom, freq = allelefrequency)
+	output:
+		summary_coverage = expand("files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed", datasets=datasets, fraction=NumberWithDepth),
+		summary_vcf= expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
+	shell:"""
+	cat {input.individual_coverage} >> {output.summary_coverage}
+	cat {input.individual_vcf} >> {output.summary_vcf}
+	"""
 
-## a rule which makes the MegaBases bedfile 
-## Creating regions which are to be investigated
-# rule mega_bases:
-# 	params: 
-# 		chrom = lambda wildcards: wildcards.region.split("_")[0].split("m")[0],
-# 		start = lambda wildcards: str(int(wildcards.region.split("_")[1].split("m")[0])*1000000),
-# 		end = lambda wildcards: str(int(wildcards.region.split("_")[3].split("m")[0])*1000000)
-# 	resources:
-# 		threads=1,
-# 		time=1,
-# 		mem_mb=100
-# 	output:
-# 		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed"
-# 	shell:"""
-# 	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
-# 	"""
-
+# a rule which makes the MegaBases bedfile 
+# Creating regions which are to be investigated
+rule mega_bases:
+	params: 
+		chrom = lambda wildcards: wildcards.region.split("_")[0].split("m")[0],
+		start = lambda wildcards: str(int(wildcards.region.split("_")[1].split("m")[0])*1000000),
+		end = lambda wildcards: str(int(wildcards.region.split("_")[3].split("m")[0])*1000000)
+	resources:
+		threads=1,
+		time=1,
+		mem_mb=100
+	output:
+		bedfiles = "{window_sizes}mb_windows/regions/{region}.bed"
+	shell:"""
+	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
+	"""
 
 # rule checking_regions_with_coverage:
 # 	input:
-# 		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed", #again do it by chromosome
-# 		coverage_accepted = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed" #output?
+# 		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed", 
+# 		coverage_accepted = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed" 
 # 	resources:
 # 		threads=1,
 # 		time=30,
