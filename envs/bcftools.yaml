@@ -1,0 +1,8 @@
+name: bcftools
+channels:
+  - bioconda
+  - conda-forge
+  - genomedk
+dependencies: 
+  - python=3.12
+  - bcftools=1.18
