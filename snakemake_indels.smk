@@ -178,10 +178,10 @@ rule indel_background_counter: #im not sure this works
 		background = temporary("{window_sizes}mb_windows/tmp/background_{region}_{kmer}mer_{fraction}p.bed"),
 		ss_background = "{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed"
 	shell:"""
-	check=`cat {filtered_regions} | wc -l`
+	check=`cat {input.filtered_regions} | wc -l`
 	if [[ $check -gt 0 ]]
 	then 
-		kmer_counter background --bed {filtered_regions} --before_after {params.before_break} {params.after_break} --reverse_complement_method both {input.genome} > {output.background}
+		kmer_counter background --bed {input.filtered_regions} --before_after {params.before_break} {params.after_break} --reverse_complement_method both {input.genome} > {output.background}
 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.background} > {output.ss_background}
 	else
 		touch {output.background}
@@ -193,15 +193,16 @@ rule creating_indel_variants:
 	input:
 		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
 		vcf_file = expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
+	conda: "envs/bedtools.yaml"
 	output:
 		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
 	shell:"""
-	check=`cat {input.accepted_regions} | wc -l`
+	check=`cat {input.filtered_regions} | wc -l`
 	if [[ $check -gt 0 ]]
 	then
-		bedtools intersect -a {input.vcf_file} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $1,$2,$4,$5}}' > {output.variants}
+		bedtools intersect -a {input.vcf_file} -b {input.filtered_regions} | awk -v OFS='\t' '{{print $1,$2,$4,$5}}' > {output.variants}
 	else
 		touch {output.variants}
 	fi
