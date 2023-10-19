@@ -47,7 +47,7 @@ def making_bed(file, percent_of_individual):
         if (end-start != 0):
             print("\t".join(["chr"+str(chrom),str((start-1)),str(end),str((end-start))]))
             pos_counter += (end-start)
-    print(pos_counter)
+    #print(pos_counter)
                 
 def counting_breakpoints(file, percent_of_individual):
     with open(file, "r") as f:
@@ -65,7 +65,7 @@ def counting_breakpoints(file, percent_of_individual):
             old_pos = int(line.split("\t")[1])
             if percent >= float(percent_of_individual):
                 counter += 1
-    print(counter, jump_counter)
+    #print(counter, jump_counter)
 
 if __name__ == '__main__':
     chr_cov = sys.argv[1]

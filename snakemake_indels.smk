@@ -9,9 +9,10 @@ configfile: 'config.yaml'
 chrom = config["chromosomes"]
 length = config["chromosome_length"]
 datasets = config["datasets"]
+blacklist = config["blacklist"]
+exons = config["exons"]
 
 #genome_bed = config["genome_bed"]
-#blacklist = config["blacklist"]
 #topmed = config["topmed_data"] # when i want to start filtering 
 #coverage_files = config["coverage"] # use this to make bedfiles, maybe later
 window_sizes = config["window_size_mb"]
@@ -66,7 +67,8 @@ rule all:
 		"files/{datasets}/vcf_files/{chrom}.BRAVO_TOPMed_Freeze_8.vcf.gz",
 		"files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
 		"files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz",
-		"{window_sizes}mb_windows/regions/{region}.bed"
+		"{window_sizes}mb_windows/regions/{region}.bed",
+		"{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
 rule coverage_regions:
@@ -74,6 +76,10 @@ rule coverage_regions:
 		seq_zipped = "files/{datasets}/coverage_files/{chrom}.BRAVO_TOPMed_coverage_hg38.txt.gz"
 	params: 
 		procent = lambda wildcards: float(int(wildcards.fraction)/100)
+	resources:
+		threads=4,
+		time=120,
+		mem_mb=5000
 	output:
 		bedfile = "files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed" # This file contains a bedfile of all the regions that passes the restriction i have put on 80% of the individuals needs to have a coverage of 10x
 	shell:"""
@@ -121,6 +127,37 @@ rule mega_bases:
 	shell:"""
 	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
 	"""
+# the fitlers for regions are blacklist(add ref), average coverage, and i want to add exome as well
+rule filtering_regions:
+	input:
+		regions = "{window_sizes}mb_windows/regions/{region}.bed",
+		coverage_accepted = expand("files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed", datasets=datasets, fraction=NumberWithDepth),
+		blacklist = blacklist,
+		exons = exons
+	conda: "envs/bedtools.yaml"
+	resources:
+		threads=1,
+		time=60,
+		mem_mb=1000
+	output:
+		tmp_cov = temporary("{window_sizes}mb_windows/tmp/tmp_coverage_{region}_{fraction}p.bed"),
+		tmp_blacklist = temporary("{window_sizes}mb_windows/tmp/blacklist_{region}_{fraction}p.bed"),
+		tmp_exons = temporary("{window_sizes}mb_windows/tmp/exons_{region}_{fraction}p.bed"),
+		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed"
+	shell:"""
+	bedtools intersect -a {input.regions} -b {input.coverage_accepted} > {output.tmp_cov} #make this temp
+	bedtools intersect -v -a {output.tmp_cov} -b {input.blacklist} > {output.tmp_blacklist}
+	bedtools intersect -v -a {output.tmp_blacklist} -b {input.exons} > {output.tmp_exons}¨
+	tmp=`bedtools intersect -wo -a {input.regions} -b {output.tmp_exons}| awk '{{s+=$7}} END {{print s}}'`
+	num=$(expr {window_sizes} \* 1000000 / 2)
+	if [[ $tmp -ge $num ]]
+	then 
+		cp {output.tmp_exons} {output.filtered_regions}
+	else
+		touch {output.filtered_regions}
+	fi
+	"""
+
 
 # rule checking_regions_with_coverage:
 # 	input:
