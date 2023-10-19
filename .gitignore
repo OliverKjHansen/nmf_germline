@@ -2,3 +2,4 @@ files/
 .snakemake/
 1mb_windows/
 logs/
+regions.pkl

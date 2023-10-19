@@ -1,0 +1,9 @@
+name: kmer_counter
+channels:
+  - bioconda
+  - conda-forge
+dependencies: 
+  - python=3.12
+  - pip
+  - pip:
+    - kmer_counter

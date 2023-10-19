@@ -16,9 +16,9 @@ exons = config["exons"]
 #topmed = config["topmed_data"] # when i want to start filtering 
 #coverage_files = config["coverage"] # use this to make bedfiles, maybe later
 window_sizes = config["window_size_mb"]
-# kmer_indels = config["kmer_indels"]
+kmer_indels = config["kmer_indels"]
 NumberWithDepth = config["NumberWithDepth"]
-# two_bit = config["twobitgenome"]
+two_bit = config["twobitgenome"]
 allelefrequency = config["allelefrequency"]
 # methylation_data = config["methylation_data"]
 # replication_time = config["replication_time"]
@@ -68,8 +68,15 @@ rule all:
 		"files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
 		"files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz",
 		"{window_sizes}mb_windows/regions/{region}.bed",
-		"{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed"
-		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
+		"{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
+		"{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed",
+		"{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
+		"{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+		"{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed"
+		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
+		region = regions, window_sizes = window_sizes, kmer = kmer_indels) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
 rule coverage_regions:
 	input:
@@ -128,6 +135,7 @@ rule mega_bases:
 	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
 	"""
 # the fitlers for regions are blacklist(add ref), average coverage, and i want to add exome as well
+# last couple of lines is accepting the regins, in which more then 50% of the bases are not filtered away
 rule filtering_regions:
 	input:
 		regions = "{window_sizes}mb_windows/regions/{region}.bed",
@@ -138,7 +146,7 @@ rule filtering_regions:
 	resources:
 		threads=1,
 		time=60,
-		mem_mb=1000
+		mem_mb=5000
 	output:
 		tmp_cov = temporary("{window_sizes}mb_windows/tmp/tmp_coverage_{region}_{fraction}p.bed"),
 		tmp_blacklist = temporary("{window_sizes}mb_windows/tmp/blacklist_{region}_{fraction}p.bed"),
@@ -147,7 +155,7 @@ rule filtering_regions:
 	shell:"""
 	bedtools intersect -a {input.regions} -b {input.coverage_accepted} > {output.tmp_cov} #make this temp
 	bedtools intersect -v -a {output.tmp_cov} -b {input.blacklist} > {output.tmp_blacklist}
-	bedtools intersect -v -a {output.tmp_blacklist} -b {input.exons} > {output.tmp_exons}¨
+	bedtools intersect -v -a {output.tmp_blacklist} -b {input.exons} > {output.tmp_exons}
 	tmp=`bedtools intersect -wo -a {input.regions} -b {output.tmp_exons}| awk '{{s+=$7}} END {{print s}}'`
 	num=$(expr {window_sizes} \* 1000000 / 2)
 	if [[ $tmp -ge $num ]]
@@ -158,125 +166,77 @@ rule filtering_regions:
 	fi
 	"""
 
+rule indel_background_counter: #im not sure this works
+	input:
+		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
+		genome = two_bit
+	conda: "envs/kmer_counter.yaml"
+	params:
+		before_break  = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[0]),
+		after_break = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[1])
+	output:
+		background = temporary("{window_sizes}mb_windows/tmp/background_{region}_{kmer}mer_{fraction}p.bed"),
+		ss_background = "{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed"
+	shell:"""
+	check=`cat {filtered_regions} | wc -l`
+	if [[ $check -gt 0 ]]
+	then 
+		kmer_counter background --bed {filtered_regions} --before_after {params.before_break} {params.after_break} --reverse_complement_method both {input.genome} > {output.background}
+		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.background} > {output.ss_background}
+	else
+		touch {output.background}
+		touch {output.ss_background}
+	fi
+	"""
 
-# rule checking_regions_with_coverage:
-# 	input:
-# 		bedfiles = "{window_sizes}mb_windows/clean/{region}.bed", 
-# 		coverage_accepted = "coverage_bedfiles/all_chromosomesx10_{fraction}p.bed" 
-# 	resources:
-# 		threads=1,
-# 		time=30,
-# 		mem_mb=1000
-# 	output:
-# 		intersected_regions = "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed"
-# 	shell:"""
-# 	bedtools intersect -a {input.bedfiles} -b {input.coverage_accepted} > {output.intersected_regions}
-# 	"""
+rule creating_indel_variants:
+	input:
+		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
+		vcf_file = expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
+	output:
+		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
+		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
+	shell:"""
+	check=`cat {input.accepted_regions} | wc -l`
+	if [[ $check -gt 0 ]]
+	then
+		bedtools intersect -a {input.vcf_file} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $1,$2,$4,$5}}' > {output.variants}
+	else
+		touch {output.variants}
+	fi
+	python scripts/creating_deletions.py {output.variants} > {output.del_variants}
+	python scripts/creating_insertions.py {output.variants} > {output.ins_variants}
+	"""
 
-# rule checking_regions_with_blacklist:
-# 	input:
-# 		intersected_regions = "{window_sizes}mb_windows/intersected/intersected_{region}_{fraction}p.bed",
-# 		blacklist = blacklist
-# 	resources:
-# 		threads=1,
-# 		time=30,
-# 		mem_mb=1000
-# 	output:
-# 		final_regions = "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed"
-# 	shell:"""
-# 	bedtools intersect -v -a {input.intersected_regions} -b {input.blacklist} > {output.final_regions}
-# 	"""
-# rule accepting_regions:
-# 	input:
-# 		clean = "{window_sizes}mb_windows/clean/{region}.bed",
-# 		final = "{window_sizes}mb_windows/final/final_{region}_{fraction}p.bed"
-# 	resources:
-# 		threads=1,
-# 		time=30,
-# 		mem_mb=1000
-# 	output:
-# 		number = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed"
-# 	shell:"""
-# 	tmp=`bedtools intersect -wo -a {input.clean} -b {input.final}| awk '{{s+=$7}} END {{print s}}'`
-# 	num=$(expr {window_sizes} \* 1000000 / 2)
-# 	if [[ $tmp -ge $num ]]
-# 	then 
-# 		cp {input.final} {output.number}
-# 	else
-# 		touch {output.number}
-# 	fi
-# 	"""
-
-# rule indel_background_counter: #im not sure this works
-# 	input:
-# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-# 		genome = two_bit
-# 	params:
-# 		before_break  = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[0]),
-# 		after_break = lambda wildcards: int(creating_breakpoints(wildcards.kmer)[1])
-# 	output:
-# 		background = "{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed",
-# 		ss_background = "{window_sizes}mb_windows/background_{kmer}mer/final/background_{region}_{kmer}mer_{fraction}p.bed"
-# 	shell:"""
-# 	check=`cat {input.accepted_regions} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then 
-# 		kmer_counter background --bed {input.accepted_regions} --before_after {params.before_break} {params.after_break} --reverse_complement_method both {input.genome} > {output.background}
-# 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.background} > {output.ss_background}
-# 	else
-# 		touch {output.background}
-# 		touch {output.ss_background}
-# 	fi
-# 	"""
-
-# rule creating_indel_variants:
-# 	input:
-# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-# 		vcf_file = "raw_vcf/indel_{freq}.vcf.gz" #change, make one or two rules that create this file(filter and ) output?
-# 	output:
-# 		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
-# 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-# 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
-# 	shell:"""
-# 	check=`cat {input.accepted_regions} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then
-# 		bedtools intersect -a {input.vcf_file} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $1,$2,$4,$5}}' > {output.variants}
-# 	else
-# 		touch {output.variants}
-# 	fi
-# 	python creating_deletions.py {output.variants} > {output.del_variants}
-# 	python creating_insertions.py {output.variants} > {output.ins_variants}
-# 	"""
-
-# rule indel_variant_counter:
-# 	input:
-# 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-# 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
-# 		genome = two_bit
-# 	params:
-# 		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
-# 	output:
-# 		kmer_count_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
-# 		kmer_count_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
-# 		ss_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/ins_counts_{region}_{kmer}mer.bed",
-# 		ss_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/final/del_counts_{region}_{kmer}mer.bed"
-# 	shell:"""
-# 	check=`cat {input.ins_variants} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then
-# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.ins_variants} ins > {output.kmer_count_ins}
-# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.del_variants} del_start > {output.kmer_count_del}
-# 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_ins} > {output.ss_ins} 
-# 		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_del} > {output.ss_del}
-
-# 	else
-# 		touch {output.kmer_count_del}
-# 		touch {output.kmer_count_ins}
-# 		touch {output.ss_del}
-# 		touch {output.ss_ins} 
-# 	fi
-# 	"""
+rule indel_variant_counter:
+	input:
+		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
+		genome = two_bit
+	conda: "envs/kmer_counter.yaml"
+	params:
+		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
+	output:
+		kmer_count_ins = temporary("{window_sizes}mb_windows/tmp/ndels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed"),
+		kmer_count_del = temporary("{window_sizes}mb_windows/tmp/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed"),
+		ss_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
+		ss_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed"
+	shell:"""
+	check=`cat {input.ins_variants} | wc -l`
+	if [[ $check -gt 0 ]]
+	then
+		kmer_counter indel -r {params.radius} --sample {input.genome} {input.ins_variants} ins > {output.kmer_count_ins}
+		kmer_counter indel -r {params.radius} --sample {input.genome} {input.del_variants} del_start > {output.kmer_count_del}
+		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_ins} > {output.ss_ins} 
+		awk -v OFS='\t' '{{print "{wildcards.region}",$1,$2}}' {output.kmer_count_del} > {output.ss_del}
+	else
+		touch {output.kmer_count_del}
+		touch {output.kmer_count_ins}
+		touch {output.ss_del}
+		touch {output.ss_ins} 
+	fi
+	"""
 
 # ### DOING METHYLATION DATA for plot
 

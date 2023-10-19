@@ -1,0 +1,9 @@
+name: kmerpapa
+channels:
+  - bioconda
+  - conda-forge
+dependencies: 
+  - python=3.12
+  - pip
+  - pip:
+    - kmerpapa=0.2.2
