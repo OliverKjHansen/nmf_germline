@@ -74,7 +74,10 @@ rule all:
 		"{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
 		"{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed"
+		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
+		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
 		region = regions, window_sizes = window_sizes, kmer = kmer_indels) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
@@ -237,6 +240,22 @@ rule indel_variant_counter:
 		touch {output.ss_del}
 		touch {output.ss_ins} 
 	fi
+	"""
+
+##Make a check for the directories
+rule aggregate_indels_regions:
+	input:
+		insertions = expand("{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
+		deletions = expand("{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
+		background = expand("{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels)
+	output:
+		summary_insertions = expand("{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
+		summary_deletions = expand("{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
+		summary_background = expand("{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels)
+	shell:"""
+	cat {input.insertions} >> {output.summary_insertions}
+	cat {input.deletions} >> {output.summary_deletions}
+	cat {input.background} >> {output.summary_background}
 	"""
 
 # ### DOING METHYLATION DATA for plot
