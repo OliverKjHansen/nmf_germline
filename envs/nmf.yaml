@@ -1,0 +1,10 @@
+name: callr
+channels:
+  - conda-forge
+dependencies: 
+  - r-callr
+  - r-tidyverse
+  - r-rcpp
+  - r-rcpparmadillo
+  - r-matrix
+  - r-reshape2

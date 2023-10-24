@@ -4,7 +4,7 @@ library("RcppArmadillo")
 library("tidyverse")
 library("Matrix")
 library("reshape2")
-sourceCpp("NMF2oppMATSpeed.cpp")
+sourceCpp("scripts/NMF2oppMATSpeed.cpp")
 
 args<-commandArgs(trailingOnly = TRUE) 
 

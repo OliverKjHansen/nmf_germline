@@ -77,7 +77,9 @@ rule all:
 		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
-		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_dataframe_{kmer}mer.rds"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
 		region = regions, window_sizes = window_sizes, kmer = kmer_indels) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
@@ -198,7 +200,7 @@ rule creating_indel_variants:
 		vcf_file = expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
 	conda: "envs/bedtools.yaml"
 	output:
-		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
+		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed",
 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
 	shell:"""
@@ -258,6 +260,31 @@ rule aggregate_indels_regions:
 	cat {input.background} >> {output.summary_background}
 	"""
 ###Now let do some nmf###
+
+rule prepare_for_nmf:
+	input:
+		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
+		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed",
+		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+	conda: "envs/callr.yaml"
+	output:
+		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_dataframe_{kmer}mer.rds",
+		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_dataframe_{kmer}mer.rds"
+	shell:"""
+	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe}
+	"""
+# rule modelselection:
+#     input:
+#         data = 
+#     resources:
+#         threads=2,
+#         time=480,
+#         mem_mb=4000
+#     output:
+#         model = "output/models/{kmer}mer/{types}/model_{kmer}mer_{types}_{signatures}.rds"
+#     shell:"""
+#     Rscript opportunity_modelselection.R {wildcards.types} {wildcards.kmer} {wildcards.signatures} {input.data} {output.model}
+#     """
 
 
 

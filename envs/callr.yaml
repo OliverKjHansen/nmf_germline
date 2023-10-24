@@ -1,0 +1,6 @@
+name: callr
+channels:
+  - conda-forge
+dependencies: 
+  - r-callr
+  - r-tidyverse
