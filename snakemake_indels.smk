@@ -20,6 +20,8 @@ kmer_indels = config["kmer_indels"]
 NumberWithDepth = config["NumberWithDepth"]
 two_bit = config["twobitgenome"]
 allelefrequency = config["allelefrequency"]
+signatures = config["NumberOfSignatures"]
+pattern_type = config["pattern_type"]
 # methylation_data = config["methylation_data"]
 # replication_time = config["replication_time"]
 # size_partition = config["size_partition"]
@@ -79,9 +81,10 @@ rule all:
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
 		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_dataframe_{kmer}mer.rds",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_dataframe_{kmer}mer.rds"
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer_{signatures}.rds"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
-		region = regions, window_sizes = window_sizes, kmer = kmer_indels) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
+		region = regions, window_sizes = window_sizes, kmer = kmer_indels, types = pattern_type, signatures = signatures) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
 rule coverage_regions:
 	input:
@@ -268,23 +271,24 @@ rule prepare_for_nmf:
 		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
 	conda: "envs/callr.yaml"
 	output:
-		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_dataframe_{kmer}mer.rds",
-		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_dataframe_{kmer}mer.rds"
+		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
+		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds"
 	shell:"""
 	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe}
 	"""
-# rule modelselection:
-#     input:
-#         data = 
-#     resources:
-#         threads=2,
-#         time=480,
-#         mem_mb=4000
-#     output:
-#         model = "output/models/{kmer}mer/{types}/model_{kmer}mer_{types}_{signatures}.rds"
-#     shell:"""
-#     Rscript opportunity_modelselection.R {wildcards.types} {wildcards.kmer} {wildcards.signatures} {input.data} {output.model}
-#     """
+rule modelselection:
+	input:
+		count_data = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/{types}_dataframe_{kmer}mer.rds"
+	conda: "envs/nmf.yaml"
+	resources:
+		threads=2,
+		time=480,
+		mem_mb=4000
+	output:
+		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer_{signatures}.rds"
+	shell:"""
+    Rscript opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
+    """
 
 
 

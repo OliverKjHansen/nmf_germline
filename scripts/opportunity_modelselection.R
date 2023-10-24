@@ -9,11 +9,11 @@ sourceCpp("scripts/NMF2oppMATSpeed.cpp")
 args<-commandArgs(trailingOnly = TRUE) 
 
 
-type <- args[1]
-kmer  <- args[2]
-sig <- as.numeric(args[3])
-path_to_input <- args[4]
-path_to_output <- args[5]
+# type <- args[1]
+# kmer  <- args[2]
+sig <- as.numeric(args[1])
+path_to_input <- args[2]
+path_to_output <- args[3]
 
 data <- readRDS(path_to_input)
 
