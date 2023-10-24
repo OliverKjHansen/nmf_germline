@@ -287,7 +287,7 @@ rule modelselection:
 	output:
 		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer_{signatures}.rds"
 	shell:"""
-    Rscript opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
+    Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
     """
 
 
