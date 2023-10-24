@@ -257,6 +257,9 @@ rule aggregate_indels_regions:
 	cat {input.deletions} >> {output.summary_deletions}
 	cat {input.background} >> {output.summary_background}
 	"""
+###Now let do some nmf###
+
+
 
 # ### DOING METHYLATION DATA for plot
 
