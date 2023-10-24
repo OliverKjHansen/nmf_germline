@@ -80,9 +80,9 @@ rule all:
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
 		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_dataframe_{kmer}mer.rds",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_dataframe_{kmer}mer.rds",
-		"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer_{signatures}.rds"
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
 		region = regions, window_sizes = window_sizes, kmer = kmer_indels, types = pattern_type, signatures = signatures) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
@@ -285,11 +285,11 @@ rule modelselection:
 		time=480,
 		mem_mb=4000
 	output:
-		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer_{signatures}.rds"
+		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
 	shell:"""
     Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
     """
-
+### Types is not implemented across all wildcards
 
 
 # ### DOING METHYLATION DATA for plot
