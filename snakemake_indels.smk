@@ -291,6 +291,14 @@ rule modelselection:
     """
 ### Types is not implemented across all wildcards
 
+rule plotting:
+	input:
+	conda: 
+	resources:
+	output:
+	shell:"""
+    
+    """
 
 # ### DOING METHYLATION DATA for plot
 
