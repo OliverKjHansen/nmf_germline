@@ -290,7 +290,7 @@ rule modelselection:
     Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
     """
 ### Types is not implemented across all wildcards
-sss
+
 rule plotting:
 	input:
 	conda: 
