@@ -4,3 +4,4 @@ files/
 logs/
 regions.pkl
 scripts/NMF2oppMATSpeed.cpp
+kmerPaPa/

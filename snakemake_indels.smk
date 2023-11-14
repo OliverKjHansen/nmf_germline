@@ -22,6 +22,7 @@ two_bit = config["twobitgenome"]
 allelefrequency = config["allelefrequency"]
 signatures = config["NumberOfSignatures"]
 pattern_type = config["pattern_type"]
+size_partition = config["size_partition"]
 # methylation_data = config["methylation_data"]
 # replication_time = config["replication_time"]
 # size_partition = config["size_partition"]
@@ -45,7 +46,16 @@ if os.path.exists("regions.pkl"):
     with open("regions.pkl", "rb") as file:
         regions = pickle.load(file)
 else:
+	os.makedirs("1mb_windows/regions/")
 	regions = making_windows(chrom, length, window_sizes)
+	for region in regions:
+		print(region)
+		chrom = region.split("_")[0].split("m")[0]
+		start = str(int(region.split("_")[1].split("m")[0])*1000000)
+		end = str(int(region.split("_")[3].split("m")[0])*1000000)
+		filename = f"1mb_windows/regions/{region}.bed"
+		with open(filename, "w") as file:
+			file.write(f"{chrom}\t{start}\t{end}\n")
 	with open("regions.pkl", "wb") as file:
 		pickle.dump(regions, file)
 
@@ -70,7 +80,7 @@ rule all:
 		"files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{freq}.vcf.gz",
 		"files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz",
 		"{window_sizes}mb_windows/regions/{region}.bed",
-		"{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
+		"{window_sizes}mb_windows/filtered_regions_{fraction}p/{region}.bed",
 		"{window_sizes}mb_windows/background_{kmer}mer/background_{region}_{kmer}mer_{fraction}p.bed",
 		"{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed", # can be removed # no it shouldnt 
 		"{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
@@ -80,11 +90,17 @@ rule all:
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
 		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
+		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/ins_size_{region}_{size_partition}.bed",
+		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/del_size_{region}_{size_partition}.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds", # types
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds", # types
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds", # types
 		"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
-		region = regions, window_sizes = window_sizes, kmer = kmer_indels, types = pattern_type, signatures = signatures) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
+		region = regions, window_sizes = window_sizes, kmer = kmer_indels, types = pattern_type,
+		signatures = signatures, size_partition = size_partition) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
 
 rule coverage_regions:
 	input:
@@ -128,20 +144,20 @@ rule aggregate_chromosomes:
 
 # a rule which makes the MegaBases bedfile 
 # Creating regions which are to be investigated
-rule mega_bases:
-	params: 
-		chrom = lambda wildcards: wildcards.region.split("_")[0].split("m")[0],
-		start = lambda wildcards: str(int(wildcards.region.split("_")[1].split("m")[0])*1000000),
-		end = lambda wildcards: str(int(wildcards.region.split("_")[3].split("m")[0])*1000000)
-	resources:
-		threads=1,
-		time=1,
-		mem_mb=100
-	output:
-		bedfiles = "{window_sizes}mb_windows/regions/{region}.bed"
-	shell:"""
-	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
-	"""
+# rule mega_bases:
+# 	params: 
+# 		chrom = lambda wildcards: wildcards.region.split("_")[0].split("m")[0],
+# 		start = lambda wildcards: str(int(wildcards.region.split("_")[1].split("m")[0])*1000000),
+# 		end = lambda wildcards: str(int(wildcards.region.split("_")[3].split("m")[0])*1000000)
+# 	resources:
+# 		threads=1,
+# 		time=1,
+# 		mem_mb=100
+# 	output:
+# 		bedfiles = "{window_sizes}mb_windows/regions/{region}.bed"
+# 	shell:"""
+# 	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
+# 	"""
 # the fitlers for regions are blacklist(add ref), average coverage, and i want to add exome as well
 # last couple of lines is accepting the regins, in which more then 50% of the bases are not filtered away
 rule filtering_regions:
@@ -159,7 +175,7 @@ rule filtering_regions:
 		tmp_cov = temporary("{window_sizes}mb_windows/tmp/tmp_coverage_{region}_{fraction}p.bed"),
 		tmp_blacklist = temporary("{window_sizes}mb_windows/tmp/blacklist_{region}_{fraction}p.bed"),
 		tmp_exons = temporary("{window_sizes}mb_windows/tmp/exons_{region}_{fraction}p.bed"),
-		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed"
+		filtered_regions = "{window_sizes}mb_windows/filtered_regions_{fraction}p/{region}.bed"
 	shell:"""
 	bedtools intersect -a {input.regions} -b {input.coverage_accepted} > {output.tmp_cov} #make this temp
 	bedtools intersect -v -a {output.tmp_cov} -b {input.blacklist} > {output.tmp_blacklist}
@@ -176,7 +192,7 @@ rule filtering_regions:
 
 rule indel_background_counter: #im not sure this works
 	input:
-		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
+		filtered_regions = "{window_sizes}mb_windows/filtered_regions_{fraction}p/{region}.bed",
 		genome = two_bit
 	conda: "envs/kmer_counter.yaml"
 	params:
@@ -199,7 +215,7 @@ rule indel_background_counter: #im not sure this works
 
 rule creating_indel_variants:
 	input:
-		filtered_regions = "{window_sizes}mb_windows/filtered_regions/{region}_{fraction}p.bed",
+		filtered_regions = "{window_sizes}mb_windows/filtered_regions_{fraction}p/{region}.bed",
 		vcf_file = expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
 	conda: "envs/bedtools.yaml"
 	output:
@@ -227,7 +243,7 @@ rule indel_variant_counter:
 	params:
 		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
 	output:
-		kmer_count_ins = temporary("{window_sizes}mb_windows/tmp/ndels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed"),
+		kmer_count_ins = temporary("{window_sizes}mb_windows/tmp/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed"),
 		kmer_count_del = temporary("{window_sizes}mb_windows/tmp/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed"),
 		ss_ins = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
 		ss_del = "{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed"
@@ -246,6 +262,49 @@ rule indel_variant_counter:
 		touch {output.ss_ins} 
 	fi
 	"""
+rule size_variant_indel:
+	input:
+		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
+		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
+	params:
+		#size = lambda wildcards: ",".join(wildcards.size_partition.split(","))
+	output:
+		insertion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/size/ins_size_{region}_{size_partition}.bed",
+		deletion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/size/del_size_{region}_{size_partition}.bed"
+	shell:"""
+	check=`cat {input.ins_variants} | wc -l`
+	if [[ $check -gt 0 ]]
+	then
+		python splitting_indel_size.py {input.ins_variants} {wildcards.size_partition} > {output.insertion}
+		python splitting_indel_size.py {input.del_variants} {wildcards.size_partition} > {output.deletion}
+	else
+		touch {output.insertion}
+		touch {output.deletion}
+	fi
+	"""
+rule size_counts_indel:
+	input:
+		insertion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/size/ins_size_{region}_{size_partition}.bed",
+		deletion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/size/del_size_{region}_{size_partition}.bed",
+		genome = two_bit
+	conda: "envs/kmer_counter.yaml"
+	params:
+		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
+	output:
+		insertion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/ins_size_{region}_{size_partition}.bed",
+		deletion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/del_size_{region}_{size_partition}.bed"
+	shell:"""
+	check=`cat {input.insertion} | wc -l`
+	if [[ $check -gt 0 ]]
+	then
+		kmer_counter indel -r {params.radius} --sample {input.genome} {input.insertion} ins | awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' - > {output.insertion_size_ss} 
+		kmer_counter indel -r {params.radius} --sample {input.genome} {input.deletion} del_start | awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' - > {output.deletion_size_ss}
+		
+	else
+		touch {output.insertion_size_ss}
+		touch {output.deletion_size_ss}
+	fi
+	"""
 ##Make a check for the directories
 rule aggregate_indels_regions:
 	input:
@@ -262,6 +321,19 @@ rule aggregate_indels_regions:
 	cat {input.deletions} >> {output.summary_deletions}
 	cat {input.background} >> {output.summary_background}
 	"""
+
+rule aggregate_size_indels:
+	input:
+		insertions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/ins_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition),
+		deletions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/del_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition)
+	output:
+		summary_insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
+		summary_deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels)
+	params:
+	shell:"""
+	cat {input.insertions} >> {output.summary_insertions}
+	cat {input.deletions} >> {output.summary_deletions}
+	"""
 ###Now let do some nmf###
 
 rule prepare_for_nmf:
@@ -272,9 +344,10 @@ rule prepare_for_nmf:
 	conda: "envs/callr.yaml"
 	output:
 		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
-		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds"
+		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
+		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds"
 	shell:"""
-	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe}
+	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
 	"""
 rule modelselection:
 	input:
@@ -291,14 +364,16 @@ rule modelselection:
     """
 ### Types is not implemented across all wildcards
 
-rule plotting:
-	input:
-	conda: 
-	resources:
-	output:
-	shell:"""
+
+
+# rule plotting:
+# 	input:
+# 	conda: 
+# 	resources:
+# 	output:
+# 	shell:"""
     
-    """
+#     """
 
 # ### DOING METHYLATION DATA for plot
 
