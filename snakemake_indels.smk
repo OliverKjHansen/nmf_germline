@@ -170,7 +170,7 @@ rule filtering_regions:
 	resources:
 		threads=1,
 		time=60,
-		mem_mb=5000
+		mem_mb=5000 #this can be put waaay down, im just afraid of triggering snakemake to make the files again
 	output:
 		tmp_cov = temporary("{window_sizes}mb_windows/tmp/tmp_coverage_{region}_{fraction}p.bed"),
 		tmp_blacklist = temporary("{window_sizes}mb_windows/tmp/blacklist_{region}_{fraction}p.bed"),
@@ -273,10 +273,12 @@ rule size_variant_indel:
 		deletion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/size/del_size_{region}_{size_partition}.bed"
 	shell:"""
 	check=`cat {input.ins_variants} | wc -l`
+	echo "$check"
 	if [[ $check -gt 0 ]]
 	then
-		python splitting_indel_size.py {input.ins_variants} {wildcards.size_partition} > {output.insertion}
-		python splitting_indel_size.py {input.del_variants} {wildcards.size_partition} > {output.deletion}
+		echo {wildcards.size_partition}
+		python scripts/splitting_indel_size.py {input.ins_variants} {wildcards.size_partition} > {output.insertion}
+		python scripts/splitting_indel_size.py {input.del_variants} {wildcards.size_partition} > {output.deletion}
 	else
 		touch {output.insertion}
 		touch {output.deletion}
@@ -295,6 +297,7 @@ rule size_counts_indel:
 		deletion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/del_size_{region}_{size_partition}.bed"
 	shell:"""
 	check=`cat {input.insertion} | wc -l`
+	echo "$check"
 	if [[ $check -gt 0 ]]
 	then
 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.insertion} ins | awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' - > {output.insertion_size_ss} 

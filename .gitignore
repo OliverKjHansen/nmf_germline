@@ -5,3 +5,4 @@ logs/
 regions.pkl
 scripts/NMF2oppMATSpeed.cpp
 kmerPaPa/
+test_folder/

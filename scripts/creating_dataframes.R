@@ -44,7 +44,7 @@ ms_ins_df <- list("count_matrix" = ms_ins_matrix,
 ms_del_df <- list("count_matrix" = ms_del_matrix,
              "background_matrix" = ms_bck_matrix)
 
-ms_merged_matrix <- merge(x= ms_ins_matrix, y = ms_del_matrix by = 0, all = TRUE, suffixes = c("_ins","_del"))
+ms_merged_matrix <- merge(x= ms_ins_matrix, y = ms_del_matrix, by = 0, all = TRUE, suffixes = c("_ins","_del"))
 ms_merged_matrix <- ms_merged_matrix[str_order(ms_merged_matrix$Row.names, numeric = TRUE),] %>% remove_rownames %>% column_to_rownames(var="Row.names")
 
 ms_bck_merged_matrix <- merge(x= ms_bck_matrix, y = ms_bck_matrix, by = 0, all = TRUE, suffixes = c("_ins","_del"))
