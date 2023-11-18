@@ -352,6 +352,21 @@ rule prepare_for_nmf:
 	shell:"""
 	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
 	"""
+
+rule prepare_for_nmf_sizeindels:
+	input:
+		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
+		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
+		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+	conda: "envs/callr.yaml"
+	output:
+		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_dataframe_{kmer}mer.rds",
+		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_dataframe_{kmer}mer.rds",
+		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_size_dataframe_{kmer}mer.rds"
+	shell:"""
+	Rscript scripts/creating_dataframes_sizedifference.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
+	"""
+
 rule modelselection:
 	input:
 		count_data = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/{types}_dataframe_{kmer}mer.rds"
@@ -359,7 +374,7 @@ rule modelselection:
 	resources:
 		threads=2,
 		time=480,
-		mem_mb=4000
+		mem_mb=10000
 	output:
 		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
 	shell:"""
