@@ -12,7 +12,7 @@ exons: "files/exons.bed"
 #coverage: "coverage/"
 
 # hyperparameters i want to try out
-allelefrequency: [0.01]
+allelefrequency: [0.1, 0.01]
 depth: [10] # maybe adding this later
 methylation_data: "methylation_data/ENCFF926RAG.bed"
 replication_time: "replicationtime_data/reptime.bed"

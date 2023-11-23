@@ -1,5 +1,7 @@
 import pickle
 import os
+os.environ['OPENBLAS_NUM_THREADS'] = '20'
+import glob
 
 configfile: 'config.yaml'
 
@@ -130,17 +132,29 @@ rule vcf_indel:
 	bcftools filter -O z -o {output.filtered} -i 'AF<{wildcards.freq} && VRT=2' {input.raw_vcf}
 	"""
 
-rule aggregate_chromosomes:
-	input:
-		individual_coverage = expand("files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed", datasets=datasets, chrom=chrom, fraction=NumberWithDepth),
-		individual_vcf =  expand("files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{freq}.vcf.gz", datasets=datasets, chrom=chrom, freq = allelefrequency)
-	output:
-		summary_coverage = expand("files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed", datasets=datasets, fraction=NumberWithDepth),
-		summary_vcf= expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
-	shell:"""
-	cat {input.individual_coverage} >> {output.summary_coverage}
-	cat {input.individual_vcf} >> {output.summary_vcf}
-	"""
+
+### These two tricks end uses blast which have the snakefile crash sometimes on the cluster
+for dataset in datasets:
+    for fraction in NumberWithDepth:
+        if not os.path.exists(f"files/{dataset}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed"):
+            os.system(f"cat files/{dataset}/derived_files/accepted_coverage/chr*x10_{fraction}p.bed > files/{dataset}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed")
+
+for dataset in datasets:
+    for frequency in allelefrequency:
+        if not os.path.exists(f"files/{dataset}/derived_files/vcf_indels/all_indels_{frequency}.vcf.gz"):
+            os.system(f"cat files/{dataset}/derived_files/vcf_indels/chr*_indel_{frequency}.vcf.gz > files/{dataset}/derived_files/vcf_indels/all_indels_{frequency}.vcf.gz")
+
+# rule aggregate_chromosomes:
+# 	input:
+# 		#individual_coverage = "files/{datasets}/derived_files/accepted_coverage/{chrom}x10_{fraction}p.bed",
+# 		individual_vcf =  expand("files/{datasets}/derived_files/vcf_indels/{chrom}_indel_{{freq}}.vcf.gz", chrom = chrom, freq = allelefrequency, datasets = datasets)
+# 	output:
+# 		#summary_coverage = "files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed",
+# 		summary_vcf= "files/{datasets}/derived_files/vcf_indels/all_indels_{{freq}}.vcf.gz"
+# 	shell:"""
+# #	cat {input.individual_coverage} > {output.summary_coverage}
+# 	cat {input.individual_vcf} > {output.summary_vcf}
+# 	"""
 
 # a rule which makes the MegaBases bedfile 
 # Creating regions which are to be investigated
@@ -163,7 +177,7 @@ rule aggregate_chromosomes:
 rule filtering_regions:
 	input:
 		regions = "{window_sizes}mb_windows/regions/{region}.bed",
-		coverage_accepted = expand("files/{datasets}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed", datasets=datasets, fraction=NumberWithDepth),
+		coverage_accepted = "files/topmed/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed", # this is a stupid idea
 		blacklist = blacklist,
 		exons = exons
 	conda: "envs/bedtools.yaml"
@@ -216,7 +230,7 @@ rule indel_background_counter: #im not sure this works
 rule creating_indel_variants:
 	input:
 		filtered_regions = "{window_sizes}mb_windows/filtered_regions_{fraction}p/{region}.bed",
-		vcf_file = expand("files/{datasets}/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", datasets=datasets, freq = allelefrequency)
+		vcf_file = "files/topmed/derived_files/vcf_indels/all_indels_{freq}.vcf.gz", # this is a stupid idea
 	conda: "envs/bedtools.yaml"
 	output:
 		variants =  "{window_sizes}mb_windows/variants/indels_{region}_{freq}_{fraction}p.bed",
@@ -309,6 +323,8 @@ rule size_counts_indel:
 	fi
 	"""
 ##Make a check for the directories
+
+#rewrite this
 rule aggregate_indels_regions:
 	input:
 		insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
