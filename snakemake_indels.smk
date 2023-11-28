@@ -1,6 +1,6 @@
 import pickle
 import os
-os.environ['OPENBLAS_NUM_THREADS'] = '20'
+os.environ['OPENBLAS_NUM_THREADS'] = '10'
 import glob
 
 configfile: 'config.yaml'
@@ -89,17 +89,17 @@ rule all:
 		"{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
-		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
+		#"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
 		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/ins_size_{region}_{size_partition}.bed",
 		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/del_size_{region}_{size_partition}.bed",
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds", # types
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds", # types
-		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds", # types
-		"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds", # types
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds", # types
+		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds", # types
+		#"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
 		region = regions, window_sizes = window_sizes, kmer = kmer_indels, types = pattern_type,
 		signatures = signatures, size_partition = size_partition) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
@@ -133,7 +133,7 @@ rule vcf_indel:
 	"""
 
 
-### These two tricks end uses blast which have the snakefile crash sometimes on the cluster
+# ### These two tricks end uses blast which have the snakefile crash sometimes on the cluster
 for dataset in datasets:
     for fraction in NumberWithDepth:
         if not os.path.exists(f"files/{dataset}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed"):
@@ -172,8 +172,8 @@ for dataset in datasets:
 # 	shell:"""
 # 	printf '%s\t%s\t%s\n' {params.chrom} {params.start} {params.end} > {output.bedfiles}
 # 	"""
-# the fitlers for regions are blacklist(add ref), average coverage, and i want to add exome as well
-# last couple of lines is accepting the regins, in which more then 50% of the bases are not filtered away
+#the fitlers for regions are blacklist(add ref), average coverage, and i want to add exome as well
+#last couple of lines is accepting the regins, in which more then 50% of the bases are not filtered away
 rule filtering_regions:
 	input:
 		regions = "{window_sizes}mb_windows/regions/{region}.bed",
@@ -191,10 +191,10 @@ rule filtering_regions:
 		tmp_exons = temporary("{window_sizes}mb_windows/tmp/exons_{region}_{fraction}p.bed"),
 		filtered_regions = "{window_sizes}mb_windows/filtered_regions_{fraction}p/{region}.bed"
 	shell:"""
-	bedtools intersect -a {input.regions} -b {input.coverage_accepted} > {output.tmp_cov} #make this temp
-	bedtools intersect -v -a {output.tmp_cov} -b {input.blacklist} > {output.tmp_blacklist}
-	bedtools intersect -v -a {output.tmp_blacklist} -b {input.exons} > {output.tmp_exons}
-	tmp=`bedtools intersect -wo -a {input.regions} -b {output.tmp_exons}| awk '{{s+=$7}} END {{print s}}'`
+	bedtools intersect -a {input.regions} -b {input.coverage_accepted} > {output.tmp_cov}
+	bedops --partition <(sort-bed {output.tmp_cov}) <(sort-bed {input.blacklist}) | bedops --not-element-of 1 - <(sort-bed {input.blacklist}) > {output.tmp_blacklist}
+	bedops --partition <(sort-bed {output.tmp_blacklist}) <(sort-bed {input.exons}) | bedops --not-element-of 1 - <(sort-bed {input.exons}) > {output.tmp_exons}
+	tmp=`cat {output.tmp_exons} | awk '{{s += ($3-$2)}} END {{print s}}'`
 	num=$(expr {window_sizes} \* 1000000 / 2)
 	if [[ $tmp -ge $num ]]
 	then 
@@ -325,220 +325,75 @@ rule size_counts_indel:
 ##Make a check for the directories
 
 #rewrite this
-rule aggregate_indels_regions:
-	input:
-		insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
-		deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
-		background = expand("{window_sizes}mb_windows/background_{{kmer}}mer/background_{region}_{{kmer}}mer_{fraction}p.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels)
-	output:
-		summary_insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
-		summary_deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
-		summary_background = expand("{window_sizes}mb_windows/background_{{kmer}}mer/combined/background_{{kmer}}mer_{fraction}p.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels)
-	params:
-	shell:"""
-	cat {input.insertions} >> {output.summary_insertions}
-	cat {input.deletions} >> {output.summary_deletions}
-	cat {input.background} >> {output.summary_background}
-	"""
-
-rule aggregate_size_indels:
-	input:
-		insertions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/ins_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition),
-		deletions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/del_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition)
-	output:
-		summary_insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
-		summary_deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels)
-	params:
-	shell:"""
-	cat {input.insertions} >> {output.summary_insertions}
-	cat {input.deletions} >> {output.summary_deletions}
-	"""
-###Now let do some nmf###
-
-rule prepare_for_nmf:
-	input:
-		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
-		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed",
-		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
-	conda: "envs/callr.yaml"
-	output:
-		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
-		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
-		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds"
-	shell:"""
-	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
-	"""
-
-rule prepare_for_nmf_sizeindels:
-	input:
-		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
-		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
-		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
-	conda: "envs/callr.yaml"
-	output:
-		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_dataframe_{kmer}mer.rds",
-		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_dataframe_{kmer}mer.rds",
-		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_size_dataframe_{kmer}mer.rds"
-	shell:"""
-	Rscript scripts/creating_dataframes_sizedifference.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
-	"""
-
-rule modelselection:
-	input:
-		count_data = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/{types}_dataframe_{kmer}mer.rds"
-	conda: "envs/nmf.yaml"
-	resources:
-		threads=2,
-		time=480,
-		mem_mb=10000
-	output:
-		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
-	shell:"""
-    Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
-    """
-### Types is not implemented across all wildcards
-
-
-
-# rule plotting:
+# rule aggregate_indels_regions:
 # 	input:
-# 	conda: 
-# 	resources:
+# 		insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
+# 		deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
+# 		background = expand("{window_sizes}mb_windows/background_{{kmer}}mer/background_{region}_{{kmer}}mer_{fraction}p.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels)
 # 	output:
+# 		summary_insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
+# 		summary_deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
+# 		summary_background = expand("{window_sizes}mb_windows/background_{{kmer}}mer/combined/background_{{kmer}}mer_{fraction}p.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels)
+# 	params:
 # 	shell:"""
-    
+# 	cat {input.insertions} >> {output.summary_insertions}
+# 	cat {input.deletions} >> {output.summary_deletions}
+# 	cat {input.background} >> {output.summary_background}
+# 	"""
+
+# rule aggregate_size_indels:
+# 	inputd:
+# 		insertions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/ins_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition),
+# 		deletions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/del_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition)
+# 	output:
+# 		summary_insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels),
+# 		summary_deletions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, window_sizes = window_sizes, kmer = kmer_indels)
+# 	params:
+# 	shell:"""
+# 	cat {input.insertions} >> {output.summary_insertions}
+# 	cat {input.deletions} >> {output.summary_deletions}
+# 	"""
+# ###Now let do some nmf###
+
+# rule prepare_for_nmf:
+# 	input:
+# 		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
+# 		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed",
+# 		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+# 	conda: "envs/callr.yaml"
+# 	output:
+# 		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
+# 		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
+# 		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds"
+# 	shell:"""
+# 	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
+# 	"""
+
+# rule prepare_for_nmf_sizeindels:
+# 	input:
+# 		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
+# 		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
+# 		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+# 	conda: "envs/callr.yaml"
+# 	output:
+# 		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_dataframe_{kmer}mer.rds",
+# 		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_dataframe_{kmer}mer.rds",
+# 		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_size_dataframe_{kmer}mer.rds"
+# 	shell:"""
+# 	Rscript scripts/creating_dataframes_sizedifference.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
+# 	"""
+
+# rule modelselection:
+# 	input:
+# 		count_data = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/{types}_dataframe_{kmer}mer.rds"
+# 	conda: "envs/nmf.yaml"
+# 	resources:
+# 		threads=2,
+# 		time=480,
+# 		mem_mb=10000
+# 	output:
+# 		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
+# 	shell:"""
+#     Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
 #     """
-
-# ### DOING METHYLATION DATA for plot
-
-# rule methylation_slicing: #im not sure this works
-# 	input:
-# 		accept_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-# 		methylation = methylation_data
-# 	resources:
-# 		threads=1,
-# 		time=60,
-# 		mem_mb=1000
-# 	output:
-# 		#intersected_meth = "{window_sizes}mb_windows/methylation/intersected",
-# 		ss_meth = "{window_sizes}mb_windows/methylation_{fraction}p/{region}_methylation.bed"
-# 	shell:"""
-# 	check=`cat {input.accept_regions}  | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then 
-# 		bedtools intersect -wa -a {input.methylation} -b {input.accept_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$2,$3,$5,$10,$11,$12,$13,$14}}' > {output.ss_meth}
-# 	else
-# 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' {wildcards.region} NA NA NA NA NA NA NA NA > {output.ss_meth}
-# 	fi
-# 	"""
-
-# ##replication_time
-# rule replication_timing: #im not sure this works
-# 	input:
-# 		accept_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-# 		rep_time = replication_time
-# 	resources:
-# 		threads=1,
-# 		time=60,
-# 		mem_mb=1000
-# 	output:
-# 		#intersected_meth = "{window_sizes}mb_windows/methylation/intersected",
-# 		reptime = "{window_sizes}mb_windows/replication_timing_{fraction}p/{region}_replicationtime.bed"
-# 	shell:"""
-# 	check=`cat {input.accept_regions}  | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then 
-# 		bedtools intersect -wa -a {input.rep_time} -b {input.accept_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$0}}' > {output.reptime}
-# 	else
-# 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' {wildcards.region} NA NA NA NA NA > {output.reptime}
-# 	fi
-# 	"""
-
-# # DOING SIZE VARIANTS
-
-# rule size_indel_variants:
-# 	input:
-# 		ins_variants = "{window_sizes}mb_windows/variants/ins_{region}_{freq}_{fraction}p.bed",
-# 		del_variants = "{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed"
-# 	params:
-# 		#size = lambda wildcards: ",".join(wildcards.size_partition.split(","))
-# 	output:
-# 		insertion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
-# 		deletion = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed"
-# 	shell:"""
-# 	check=`cat {input.ins_variants} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then
-# 		python splitting_indel_size.py {input.ins_variants} {wildcards.size_partition} > {output.insertion} 
-# 		python splitting_indel_size.py {input.del_variants} {wildcards.size_partition} > {output.deletion}
-		
-# 	else
-# 		touch {output.insertion}
-# 		touch {output.deletion}
-# 	fi
-# 	"""
-
-# rule indel_size_counter:
-# 	input:
-# 		insertion_size = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/ins_{region}_{size_partition}.bed",
-# 		deletion_size = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/variant/del_{region}_{size_partition}.bed",
-# 		genome = two_bit
-# 	params:
-# 		radius  = lambda wildcards: int(int(wildcards.kmer)/2)
-# 	output:
-# 		insertion_sized = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/ins_{region}_{size_partition}_{kmer}mer_tmp.bed",
-# 		deletion_sized = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/tmp/del_{region}_{size_partition}_{kmer}mer_tmp.bed",
-# 		insertion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/ins_{region}_{size_partition}_{kmer}mer_final.bed",
-# 		deletion_size_ss = "{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/final/del_{region}_{size_partition}_{kmer}mer_final.bed"
-# 	shell:"""
-# 	check=`cat {input.insertion_size} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then
-# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.insertion_size} ins > {output.insertion_sized}
-# 		kmer_counter indel -r {params.radius} --sample {input.genome} {input.deletion_size} del_start > {output.deletion_sized}
-# 		awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' {output.insertion_sized} > {output.insertion_size_ss} 
-# 		awk -v OFS='\t' '{{print "{wildcards.region}","{wildcards.size_partition}",$1,$2}}' {output.deletion_sized} > {output.deletion_size_ss}
-
-# 	else
-# 		touch {output.insertion_sized}
-# 		touch {output.deletion_sized}
-# 		touch {output.deletion_size_ss}
-# 		touch {output.insertion_size_ss}
-# 	fi
-# 	"""
-
-# ####COMPLEX STRUCTURES#####
-
-# rule creating_complex_structure:
-# 	input:
-# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-# 		complex_structure = "nonBdna/{complex_structure}.bed" #change, make one or two rules that create this file(filter and ) output?
-# 	output:
-# 		cs =  "{window_sizes}mb_windows/complex_structures/{region}_{complex_structure}_{fraction}p.bed"
-# 	shell:"""
-# 	check=`cat {input.accepted_regions} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then
-# 		bedtools intersect -a {input.complex_structure} -b {input.accepted_regions} | awk -v OFS='\t' '{{print $0}}' > {output.cs}
-# 	else
-# 		touch {output.cs}
-# 	fi
-# 	"""
-
-# ####Recombination rate######
-
-# rule recombination_rate:
-# 	input:
-# 		accepted_regions = "{window_sizes}mb_windows/accepted_regions/accepted_{region}_{fraction}p.bed",
-# 		recombination_map = recombination #change, make one or two rules that create this file(filter and ) output?
-# 	output:
-# 		recomb =  "{window_sizes}mb_windows/recombination/{region}_recombination_{fraction}p.bed"
-# 	shell:"""
-# 	check=`cat {input.accepted_regions} | wc -l`
-# 	if [[ $check -gt 0 ]]
-# 	then
-# 		bedtools intersect -a {input.recombination_map} -b {input.accepted_regions} | awk -v OFS='\t' '{{print "{wildcards.region}",$0}}' > {output.recomb}
-# 	else
-# 		touch {output.recomb}
-# 	fi
-# 	"""
+### Types is not implemented across all wildcards

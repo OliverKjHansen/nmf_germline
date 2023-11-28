@@ -5,3 +5,4 @@ channels:
 dependencies: 
   - python=3.12
   - bedtools=2.31.0
+  - bedops=2.4.41

@@ -7,7 +7,7 @@ file_path: "files/"
 genome_bed: "files/hg38_clean.bed"
 blacklist: "files/hg38-blacklist.v2.bed"
 twobitgenome: "files/hg38.2bit"
-exons: "files/exons.bed"
+exons: "files/UCSC_exons_modif_canonical.bed" #"files/exons.bed"
 #topmed_data: "raw_vcf/"
 #coverage: "coverage/"
 

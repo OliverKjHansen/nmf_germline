@@ -71,5 +71,5 @@ if __name__ == '__main__':
     chr_cov = sys.argv[1]
     percent_of_individual = sys.argv[2]
     making_bed(chr_cov, percent_of_individual)
-    counting_breakpoints(chr_cov, percent_of_individual)
+    #counting_breakpoints(chr_cov, percent_of_individual)
 
