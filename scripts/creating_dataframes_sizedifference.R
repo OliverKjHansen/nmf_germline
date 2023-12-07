@@ -37,7 +37,7 @@ ms_ins_matrix <- ms_ins_matrix %>% remove_rownames %>% column_to_rownames(var="r
 ms_del_matrix <- ms_del_matrix %>% remove_rownames %>% column_to_rownames(var="region")
 ms_bck_matrix <- ms_bck_matrix %>% remove_rownames %>% column_to_rownames(var="region")
 
-ms_bck_3_matrix <- ms_bck_matrix[,rep(1:ncol(ms_bck_matrix),, each = 3)]
+ms_bck_3_matrix <- ms_bck_matrix[,rep(1:ncol(ms_bck_matrix), each = 3)]
 
 # ms_bck_3_matrix <- merge( x = merge(x= ms_bck_matrix, y = ms_bck_matrix, by = 0, all = TRUE, suffixes = c("_11","_23")) %>% remove_rownames %>% column_to_rownames(var="Row.names"),
 # y = ms_bck_matrix, by = 0, all = TRUE, suffixes = c("","_40"))
