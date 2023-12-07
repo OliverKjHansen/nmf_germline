@@ -89,17 +89,20 @@ rule all:
 		"{window_sizes}mb_windows/variants/del_{region}_{freq}_{fraction}p.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{kmer}mer.bed",
 		"{window_sizes}mb_windows/indels_{kmer}mer/frequency_{freq}_at_{fraction}p/del_counts_{region}_{kmer}mer.bed",
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
-		#"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed", 
+		"{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
 		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/ins_size_{region}_{size_partition}.bed",
 		"{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{kmer}mer/del_size_{region}_{size_partition}.bed",
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds", # types
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds", # types
-		#"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds", # types
-		#"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds", # types
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds", # types
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_dataframe_{kmer}mer.rds",
+		"{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_size_dataframe_{kmer}mer.rds", # types
+		"{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
 		], datasets = datasets, chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency,
 		region = regions, window_sizes = window_sizes, kmer = kmer_indels, types = pattern_type,
 		signatures = signatures, size_partition = size_partition) #region = regions, window_sizes = window_sizes, kmer = kmer_indels,chrom = chrom, fraction = NumberWithDepth, freq = allelefrequency, size_partition = size_partition, complex_structure = complex_structure)
@@ -133,7 +136,7 @@ rule vcf_indel:
 	"""
 
 
-# ### These two tricks end uses blast which have the snakefile crash sometimes on the cluster
+# ### These two tricks uses blast which have the snakefile crash sometimes on the cluster
 for dataset in datasets:
     for fraction in NumberWithDepth:
         if not os.path.exists(f"files/{dataset}/derived_files/accepted_coverage/all_coverage_x10_{fraction}p.bed"):
@@ -324,7 +327,6 @@ rule size_counts_indel:
 	"""
 ##Make a check for the directories
 
-#rewrite this
 # rule aggregate_indels_regions:
 # 	input:
 # 		insertions = expand("{window_sizes}mb_windows/indels_{{kmer}}mer/frequency_{freq}_at_{fraction}p/ins_counts_{region}_{{kmer}}mer.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels),
@@ -342,7 +344,7 @@ rule size_counts_indel:
 # 	"""
 
 # rule aggregate_size_indels:
-# 	inputd:
+# 	input:
 # 		insertions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/ins_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition),
 # 		deletions = expand("{window_sizes}mb_windows/size_difference_{freq}_{fraction}p/counts_{{kmer}}mer/del_size_{region}_{size_partition}.bed", fraction = NumberWithDepth, freq = allelefrequency, region = regions, window_sizes = window_sizes, kmer = kmer_indels, size_partition = size_partition)
 # 	output:
@@ -353,47 +355,72 @@ rule size_counts_indel:
 # 	cat {input.insertions} >> {output.summary_insertions}
 # 	cat {input.deletions} >> {output.summary_deletions}
 # 	"""
+
+for window_size in window_sizes:
+	for fraction in NumberWithDepth:
+		for frequency in allelefrequency:
+			for kmer in kmer_indels:
+				if not os.path.exists(f"{window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/ins_counts_{kmer}mer.bed"):
+					os.system(f"cat {window_size}mb_windows/indels_{kmer}mer/frequency_{frequency}_at_{fraction}p/ins_counts_*_{kmer}mer.bed > {window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/ins_counts_{kmer}mer.bed")
+				if not os.path.exists(f"{window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/del_counts_{kmer}mer.bed"):
+					os.system(f"cat {window_size}mb_windows/indels_{kmer}mer/frequency_{frequency}_at_{fraction}p/del_counts_*_{kmer}mer.bed > {window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/del_counts_{kmer}mer.bed")
+				if not os.path.exists(f"{window_size}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"):
+					os.system(f"cat {window_size}mb_windows/background_{kmer}mer/background_*_{kmer}mer_{fraction}p.bed > {window_size}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed")
+
+
+for window_size in window_sizes:
+	for fraction in NumberWithDepth:
+		for frequency in allelefrequency:
+			for kmer in kmer_indels:
+					if not os.path.exists(f"{window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/ins_size_{kmer}mer.bed"):
+						os.system(f"cat {window_size}mb_windows/size_difference_{frequency}_{fraction}p/counts_{kmer}mer/ins_size_*.bed > {window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/ins_size_{kmer}mer.bed")
+					if not os.path.exists(f"{window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/del_size_{kmer}mer.bed"):
+						os.system(f"cat {window_size}mb_windows/size_difference_{frequency}_{fraction}p/counts_{kmer}mer/del_size_*.bed > {window_size}mb_windows/indels_{kmer}mer/combined/frequency_{frequency}_at_{fraction}p/del_size_{kmer}mer.bed")
+
+
+
+
 # ###Now let do some nmf###
 
-# rule prepare_for_nmf:
-# 	input:
-# 		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
-# 		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed",
-# 		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
-# 	conda: "envs/callr.yaml"
-# 	output:
-# 		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
-# 		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
-# 		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds"
-# 	shell:"""
-# 	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
-# 	"""
+rule prepare_for_nmf:
+	input:
+		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_counts_{kmer}mer.bed",
+		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_counts_{kmer}mer.bed",
+		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+	conda: "envs/callr.yaml"
+	output:
+		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/insertions_dataframe_{kmer}mer.rds",
+		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/deletions_dataframe_{kmer}mer.rds",
+		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_dataframe_{kmer}mer.rds"
+	shell:"""
+	Rscript scripts/creating_dataframes.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
+	"""
 
-# rule prepare_for_nmf_sizeindels:
-# 	input:
-# 		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
-# 		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
-# 		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
-# 	conda: "envs/callr.yaml"
-# 	output:
-# 		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_dataframe_{kmer}mer.rds",
-# 		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_dataframe_{kmer}mer.rds",
-# 		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_size_dataframe_{kmer}mer.rds"
-# 	shell:"""
-# 	Rscript scripts/creating_dataframes_sizedifference.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
-# 	"""
+rule prepare_for_nmf_sizeindels:
+	input:
+		summary_insertions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_{kmer}mer.bed",
+		summary_deletions = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_{kmer}mer.bed",
+		summary_background = "{window_sizes}mb_windows/background_{kmer}mer/combined/background_{kmer}mer_{fraction}p.bed"
+	conda: "envs/callr.yaml"
+	output:
+		insertions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/ins_size_dataframe_{kmer}mer.rds",
+		deletions_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/del_size_dataframe_{kmer}mer.rds",
+		merged_dataframe = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/merged_size_dataframe_{kmer}mer.rds"
+	shell:"""
+	Rscript scripts/creating_dataframes_sizedifference.R {input.summary_background} {input.summary_insertions} {input.summary_deletions} {output.deletions_dataframe} {output.insertions_dataframe} {output.merged_dataframe}
+	"""
 
-# rule modelselection:
-# 	input:
-# 		count_data = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/{types}_dataframe_{kmer}mer.rds"
-# 	conda: "envs/nmf.yaml"
-# 	resources:
-# 		threads=2,
-# 		time=480,
-# 		mem_mb=10000
-# 	output:
-# 		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
-# 	shell:"""
-#     Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
-#     """
+rule modelselection:
+	input:
+		count_data = "{window_sizes}mb_windows/indels_{kmer}mer/combined/frequency_{freq}_at_{fraction}p/{types}_dataframe_{kmer}mer.rds"
+	conda: "envs/nmf.yaml"
+	resources:
+		threads=4,
+		time=540,
+		mem_mb=8000
+	output:
+		model = "{window_sizes}mb_windows/models/frequency_{freq}_at_{fraction}p/{types}_{kmer}mer/{types}_{kmer}mer_{signatures}.rds"
+	shell:"""
+    Rscript scripts/opportunity_modelselection.R {wildcards.signatures} {input.count_data} {output.model}
+    """
 ### Types is not implemented across all wildcards

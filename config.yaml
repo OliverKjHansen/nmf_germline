@@ -14,9 +14,9 @@ exons: "files/UCSC_exons_modif_canonical.bed" #"files/exons.bed"
 # hyperparameters i want to try out
 allelefrequency: [0.1, 0.01]
 depth: [10] # maybe adding this later
-methylation_data: "methylation_data/ENCFF926RAG.bed"
-replication_time: "replicationtime_data/reptime.bed"
-recombination: "recombination/recom_rate.bed"
+methylation_data: "files/ENCFF926RAG.bed"
+replication_time: "files/reptime.bed"
+recombination: "files/recom_rate.bed"
 
 chromosomes: [chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,
               chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,
